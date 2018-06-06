@@ -14,22 +14,22 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Discord4J.  If not, see <http://www.gnu.org/licenses/>.
  */
-package discord4j.voice;
+package discord4j.voice.impl;
 
 import discord4j.common.ResettableInterval;
+import discord4j.voice.*;
 import discord4j.voice.json.Identify;
 import discord4j.voice.json.VoiceGatewayPayload;
+import discord4j.voice.json.VoiceOpcode;
 import discord4j.websocket.WebSocketClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
-import java.util.concurrent.atomic.AtomicInteger;
+class VoiceGatewayClient {
 
-public class VoiceGatewayClient {
-
-    public static final String VERSION = "3";
+    static final String VERSION = "3";
 
     private final WebSocketClient webSocketClient = new WebSocketClient();
     private final ResettableInterval heartbeat = new ResettableInterval();
@@ -37,29 +37,22 @@ public class VoiceGatewayClient {
     private final EmitterProcessor<VoiceGatewayPayload<?>> sender = EmitterProcessor.create(false);
     private final FluxSink<VoiceGatewayPayload<?>> senderSink = sender.sink(FluxSink.OverflowStrategy.LATEST);
 
-    private final VoiceClient voiceClient;
     private final VoicePayloadReader payloadReader;
     private final VoicePayloadWriter payloadWriter;
-    private final VoiceGatewayPayload<Identify> identifyPayload;
+    private final VoicePayloadHandler payloadHandler;
 
-    private final AtomicInteger ssrc = new AtomicInteger();
-
-    public VoiceGatewayClient(VoiceClient voiceClient, VoicePayloadReader payloadReader,
-                              VoicePayloadWriter payloadWriter, long guildId, long userId, String token,
-                              String sessionId) {
-        this.voiceClient = voiceClient;
+    VoiceGatewayClient(VoiceConnection voiceConnection, VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter, String endpoint, Identify identify) {
         this.payloadReader = payloadReader;
         this.payloadWriter = payloadWriter;
-        this.identifyPayload = VoiceGatewayPayload.identify(Long.toUnsignedString(guildId),
-                Long.toUnsignedString(userId), sessionId, token);
+
+        this.payloadHandler = new VoicePayloadHandler(voiceConnection, heartbeat, endpoint, new VoiceGatewayPayload<>(VoiceOpcode.IDENTIFY, identify));
     }
 
-    public Mono<Void> execute(String gatewayUrl) {
+    Mono<Void> execute(String gatewayUrl) {
         return Mono.defer(() -> {
             VoiceWebsocketHandler handler = new VoiceWebsocketHandler(payloadReader, payloadWriter);
 
-            Disposable inboundSub = handler.inbound().subscribe(payload ->
-                    VoicePayloadHandlers.handle(payload, voiceClient, this));
+            Disposable inboundSub = handler.inbound().subscribe(payloadHandler::handle);
 
             Disposable heartbeatSub = heartbeat.ticks()
                     .map(VoiceGatewayPayload::heartbeat)
@@ -77,19 +70,7 @@ public class VoiceGatewayClient {
         });
     }
 
-    public FluxSink<VoiceGatewayPayload<?>> sender() {
+    FluxSink<VoiceGatewayPayload<?>> sender() {
         return senderSink;
-    }
-
-    ResettableInterval heartbeat() {
-        return heartbeat;
-    }
-
-    public AtomicInteger getSsrc() {
-        return ssrc;
-    }
-
-    VoiceGatewayPayload<Identify> getIdentifyPayload() {
-        return identifyPayload;
     }
 }

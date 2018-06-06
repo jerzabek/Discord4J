@@ -16,26 +16,15 @@
  */
 package discord4j.voice.impl;
 
-import discord4j.voice.*;
-
-import java.util.concurrent.ConcurrentHashMap;
+import discord4j.voice.VoiceClient;
+import discord4j.voice.VoiceClientFactory;
+import discord4j.voice.VoicePayloadReader;
+import discord4j.voice.VoicePayloadWriter;
 
 public class DefaultVoiceClientFactory implements VoiceClientFactory {
 
-    private final ConcurrentHashMap<Long, VoiceClient> voiceClients = new ConcurrentHashMap<>();
-    private final VoicePayloadReader payloadReader;
-    private final VoicePayloadWriter payloadWriter;
-
-    public DefaultVoiceClientFactory(VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter) {
-        this.payloadReader = payloadReader;
-        this.payloadWriter = payloadWriter;
-    }
-
     @Override
-    public VoiceClient getVoiceClient(AudioProvider audioProvider, AudioReceiver audioReceiver, String endpoint,
-                                      long guildId, long userId, String token, String sessionId) {
-
-        return voiceClients.computeIfAbsent(guildId, k -> new DefaultVoiceClient(payloadReader, payloadWriter,
-                audioProvider, audioReceiver, endpoint, guildId, userId, token, sessionId));
+    public VoiceClient getVoiceClient(VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter) {
+        return new DefaultVoiceClient(payloadReader, payloadWriter);
     }
 }

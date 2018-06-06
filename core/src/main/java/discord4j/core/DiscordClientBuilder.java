@@ -45,6 +45,7 @@ import discord4j.store.jdk.JdkStoreService;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
+import discord4j.voice.VoiceClient;
 import discord4j.voice.VoiceClientFactory;
 import discord4j.voice.VoicePayloadReader;
 import discord4j.voice.VoicePayloadWriter;
@@ -82,6 +83,8 @@ public final class DiscordClientBuilder {
     private RetryOptions retryOptions;
     private boolean ignoreUnknownJsonKeys;
 
+    private VoiceClientFactory voiceClientFactory;
+
     public DiscordClientBuilder(final String token) {
         this.token = Objects.requireNonNull(token);
         //Increase JDK store priority by default
@@ -93,6 +96,8 @@ public final class DiscordClientBuilder {
         eventScheduler = Schedulers.elastic();
         retryOptions = new RetryOptions(Duration.ofSeconds(2), Duration.ofSeconds(120), Integer.MAX_VALUE);
         ignoreUnknownJsonKeys = true;
+
+        voiceClientFactory = new DefaultVoiceClientFactory();
     }
 
     public String getToken() {
@@ -228,10 +233,9 @@ public final class DiscordClientBuilder {
                 identifyOptions.getShardCount());
         final EventDispatcher eventDispatcher = new EventDispatcher(eventProcessor, eventScheduler);
 
-        final VoiceClientFactory voiceClientFactory =
-                new DefaultVoiceClientFactory(new VoicePayloadReader(mapper), new VoicePayloadWriter(mapper)); // FIXME
+        final VoiceClient voiceClient = voiceClientFactory.getVoiceClient(new VoicePayloadReader(mapper), new VoicePayloadWriter(mapper));
 
-        final ServiceMediator serviceMediator = new ServiceMediator(gatewayClient, restClient, voiceClientFactory,
+        final ServiceMediator serviceMediator = new ServiceMediator(gatewayClient, restClient, voiceClient,
                 storeService, stateHolder, eventDispatcher, config);
 
         serviceMediator.getGatewayClient().dispatch()

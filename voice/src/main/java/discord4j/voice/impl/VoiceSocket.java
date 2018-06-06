@@ -22,7 +22,6 @@ import reactor.core.Disposable;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
 import reactor.ipc.netty.ByteBufFlux;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.udp.UdpClient;
@@ -34,7 +33,7 @@ import java.nio.charset.StandardCharsets;
 
 public class VoiceSocket {
 
-    public static final String ENCRYPTION_MODE = "xsalsa20_poly1305";
+    static final String ENCRYPTION_MODE = "xsalsa20_poly1305";
     private static final int DISCOVERY_PACKET_LENGTH = 70;
 
     private final EmitterProcessor<ByteBuf> inbound = EmitterProcessor.create(false);
@@ -42,7 +41,7 @@ public class VoiceSocket {
 
     private final FluxSink<ByteBuf> outboundSink = outbound.sink(FluxSink.OverflowStrategy.LATEST);
 
-    public Mono<Void> setup(String address, int port) {
+    Mono<Void> setup(String address, int port) {
         return UdpClient.create(address, port)
                 .newHandler((in, out) -> {
                     Disposable inboundSub = in.receive().subscribe(inbound::onNext);
@@ -53,7 +52,7 @@ public class VoiceSocket {
                 .then();
     }
 
-    public Mono<Tuple2<String, Integer>> performIpDiscovery(int ssrc) {
+    Mono<Tuple2<String, Integer>> performIpDiscovery(int ssrc) {
         Mono<Void> sendDiscoveryPacket = Mono.fromRunnable(() -> {
             ByteBuffer buf = ByteBuffer.allocate(DISCOVERY_PACKET_LENGTH).putInt(ssrc);
             buf.position(0);
@@ -73,11 +72,11 @@ public class VoiceSocket {
         return sendDiscoveryPacket.then(parseResponse);
     }
 
-    public ByteBufFlux inbound() {
+    ByteBufFlux inbound() {
         return ByteBufFlux.fromInbound(inbound);
     }
 
-    public FluxSink<ByteBuf> outbound() {
+    FluxSink<ByteBuf> outbound() {
         return outboundSink;
     }
 }

@@ -18,6 +18,5 @@ package discord4j.voice;
 
 public interface VoiceClientFactory {
 
-    VoiceClient getVoiceClient(AudioProvider audioProvider, AudioReceiver audioReceiver, String endpoint, long guildId,
-                               long userId, String token, String sessionId);
+    VoiceClient getVoiceClient(VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter);
 }

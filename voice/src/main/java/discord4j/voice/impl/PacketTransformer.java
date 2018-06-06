@@ -24,7 +24,7 @@ import reactor.core.publisher.Flux;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 
-public final class PacketTransformer {
+final class PacketTransformer {
 
     private static final int OPUS_SAMPLE_RATE = 48_000;
     private static final int OPUS_FRAME_TIME = 20;
@@ -40,12 +40,12 @@ public final class PacketTransformer {
     private final int ssrc;
     private final TweetNaclFast.SecretBox boxer;
 
-    public PacketTransformer(int ssrc, TweetNaclFast.SecretBox boxer) {
+    PacketTransformer(int ssrc, TweetNaclFast.SecretBox boxer) {
         this.ssrc = ssrc;
         this.boxer = boxer;
     }
 
-    public Flux<ByteBuf> send(Flux<byte[]> in) {
+    Flux<ByteBuf> send(Flux<byte[]> in) {
         return Flux.zip(headers, in, Flux.interval(Duration.ofMillis(OPUS_FRAME_TIME)))
                 .map(t -> {
                     byte[] rtpHeader = t.getT1();
@@ -56,7 +56,7 @@ public final class PacketTransformer {
                 .map(Unpooled::wrappedBuffer);
     }
 
-    public Flux<ByteBuf> receive(Flux<ByteBuf> in) {
+    Flux<ByteBuf> receive(Flux<ByteBuf> in) {
         return in.map(buf -> {
             byte[] rtpHeader = new byte[RTP_HEADER_LENGTH];
             buf.readBytes(rtpHeader);

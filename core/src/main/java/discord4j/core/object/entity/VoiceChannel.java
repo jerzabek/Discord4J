@@ -31,8 +31,7 @@ import discord4j.core.util.EntityUtil;
 import reactor.core.publisher.Flux;
 import discord4j.gateway.json.GatewayPayload;
 import discord4j.gateway.json.VoiceStateUpdate;
-import discord4j.voice.AudioProvider;
-import discord4j.voice.AudioReceiver;
+import discord4j.voice.VoiceConnectionController;
 import reactor.core.publisher.Mono;
 
 import java.util.Optional;
@@ -131,7 +130,7 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
                 .cast(VoiceChannel.class);
     }
 
-    public Mono<Void> join(AudioProvider audioProvider, AudioReceiver audioReceiver) {
+    public Mono<VoiceConnectionController> join() {
         VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(getGuildId().asLong(), getId().asLong(), false, false);
 
         Mono<Void> sendVoiceStateUpdate = Mono.fromRunnable(() ->
@@ -152,19 +151,16 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
                 .next();
 
         return sendVoiceStateUpdate
-                .then(Mono.zip(waitForVoiceStateUpdate, waitForVoiceServerUpdate)) // wait for both in any order
-                .flatMap(t -> {
-                    VoiceStateUpdateEvent stateUpdate = t.getT1();
-                    VoiceServerUpdateEvent serverUpdate = t.getT2();
+                .then(Mono.zip(waitForVoiceStateUpdate, waitForVoiceServerUpdate))
+                .map(t -> {
+                    String endpoint = t.getT2().getEndpoint().replace(":80", ""); // discord sends the wrong port...
+                    long guild = getGuildId().asLong();
+                    long user = getServiceMediator().getStateHolder().getSelfId().get();
+                    String session = t.getT1().getCurrent().getSessionId();
+                    String token = t.getT2().getToken();
 
-                    long guildId = getGuildId().asLong();
-                    long selfId = getServiceMediator().getStateHolder().getSelfId().get();
-                    String token = serverUpdate.getToken();
-                    String sessionId = stateUpdate.getCurrent().getSessionId();
-
-                    return getServiceMediator().getVoiceClientFactory()
-                            .getVoiceClient(audioProvider, audioReceiver, serverUpdate.getEndpoint(), guildId, selfId, token, sessionId)
-                            .execute();
-                });
+                    return getServiceMediator().getVoiceClient().getConnection(endpoint, guild, user, session, token);
+                })
+                .map(VoiceConnectionController::new);
     }
 }

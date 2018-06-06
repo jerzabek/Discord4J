@@ -14,8 +14,10 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Discord4J.  If not, see <http://www.gnu.org/licenses/>.
  */
-package discord4j.voice;
+package discord4j.voice.impl;
 
+import discord4j.voice.VoicePayloadReader;
+import discord4j.voice.VoicePayloadWriter;
 import discord4j.voice.json.VoiceGatewayPayload;
 import discord4j.websocket.WebSocketHandler;
 import discord4j.websocket.WebSocketMessage;
@@ -28,7 +30,7 @@ import reactor.util.Loggers;
 
 import java.util.logging.Level;
 
-public class VoiceWebsocketHandler implements WebSocketHandler {
+class VoiceWebsocketHandler implements WebSocketHandler {
 
     private static final Logger inboundLogger = Loggers.getLogger("discord4j.voice.inbound");
     private static final Logger outboundLogger = Loggers.getLogger("discord4j.voice.outbound");
@@ -39,7 +41,7 @@ public class VoiceWebsocketHandler implements WebSocketHandler {
     private final VoicePayloadReader reader;
     private final VoicePayloadWriter writer;
 
-    public VoiceWebsocketHandler(VoicePayloadReader reader, VoicePayloadWriter writer) {
+    VoiceWebsocketHandler(VoicePayloadReader reader, VoicePayloadWriter writer) {
         this.reader = reader;
         this.writer = writer;
     }
@@ -57,25 +59,25 @@ public class VoiceWebsocketHandler implements WebSocketHandler {
         return session.send(outboundExchange.map(this::mapOutbound).log(outboundLogger, Level.FINE, false));
     }
 
-    public Flux<VoiceGatewayPayload<?>> inbound() {
+    Flux<VoiceGatewayPayload<?>> inbound() {
         return inboundExchange;
     }
 
-    public UnicastProcessor<VoiceGatewayPayload<?>> outbound() {
+    UnicastProcessor<VoiceGatewayPayload<?>> outbound() {
         return outboundExchange;
+    }
+
+    void close() {
+        outboundExchange.onComplete();
+        inboundExchange.onComplete();
+    }
+
+    private void error(Throwable error) {
+        outboundExchange.onComplete();
+        inboundExchange.onComplete();
     }
 
     private WebSocketMessage mapOutbound(VoiceGatewayPayload<?> payload) {
         return WebSocketMessage.fromText(writer.write(payload));
-    }
-
-    public void close() {
-        outboundExchange.onComplete();
-        inboundExchange.onComplete();
-    }
-
-    public void error(Throwable error) {
-        outboundExchange.onComplete();
-        inboundExchange.onComplete();
     }
 }

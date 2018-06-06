@@ -16,7 +16,22 @@
  */
 package discord4j.voice;
 
-public interface VoiceClient {
+import reactor.core.publisher.Mono;
 
-    VoiceConnection getConnection(String endpoint, long guildId, long userId, String sessionId, String token);
+public class VoiceConnectionController {
+
+    private final VoiceConnection connection;
+
+    public VoiceConnectionController(VoiceConnection connection) {
+        this.connection = connection;
+    }
+
+    public Mono<Void> connect(AudioProvider audioProvider, AudioReceiver audioReceiver) {
+        connection.setHandlers(audioProvider, audioReceiver);
+        return connection.execute();
+    }
+
+    public void disconnect() {
+        connection.shutdown();
+    }
 }

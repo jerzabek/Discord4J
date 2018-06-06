@@ -16,7 +16,28 @@
  */
 package discord4j.voice;
 
-public interface VoiceClient {
+import discord4j.voice.json.VoiceGatewayPayload;
+import io.netty.buffer.ByteBuf;
+import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 
-    VoiceConnection getConnection(String endpoint, long guildId, long userId, String sessionId, String token);
+import java.util.concurrent.atomic.AtomicReference;
+
+public interface VoiceConnection {
+
+    Mono<Void> execute();
+
+    Mono<Void> setupUdp(String address, int port);
+
+    Mono<Tuple2<String, Integer>> discoverIp(int ssrc);
+
+    void sendGatewayMessage(VoiceGatewayPayload<?> message);
+
+    void sendAudio(ByteBuf audio);
+
+    void startHandlingAudio(byte[] secretKey, int ssrc);
+
+    void shutdown();
+
+    void setHandlers(AudioProvider audioProvider, AudioReceiver audioReceiver);
 }
