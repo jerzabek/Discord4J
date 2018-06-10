@@ -28,11 +28,19 @@ public class VoiceConnectionController {
     private final VoiceConnection connection;
     private final ServiceMediator serviceMediator;
     private final long guildId;
+    private final long channelId;
 
-    public VoiceConnectionController(VoiceConnection connection, ServiceMediator serviceMediator, long guildId) {
+    private boolean selfMute;
+    private boolean selfDeaf;
+
+    public VoiceConnectionController(VoiceConnection connection, ServiceMediator serviceMediator, long guildId,
+                                     long channelId, boolean selfMute, boolean selfDeaf) {
         this.connection = connection;
         this.serviceMediator = serviceMediator;
         this.guildId = guildId;
+        this.channelId = channelId;
+        this.selfMute = selfMute;
+        this.selfDeaf = selfDeaf;
     }
 
     public Mono<Void> connect(AudioProvider audioProvider, AudioReceiver audioReceiver) {
@@ -43,7 +51,19 @@ public class VoiceConnectionController {
     public void disconnect() {
         connection.shutdown();
 
-        GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, null, false, false)); // fixme
+        GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, null, selfMute, selfDeaf));
         serviceMediator.getGatewayClient().sender().next(update);
+    }
+
+    public void setSelfMute(boolean selfMute) {
+        GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, channelId, selfMute, selfDeaf));
+        serviceMediator.getGatewayClient().sender().next(update);
+        this.selfMute = selfMute;
+    }
+
+    public void setSelfDeaf(boolean selfDeaf) {
+        GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, channelId, selfMute, selfDeaf));
+        serviceMediator.getGatewayClient().sender().next(update);
+        this.selfDeaf = selfDeaf;
     }
 }

@@ -131,13 +131,17 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
     }
 
     public Mono<VoiceConnectionController> join() {
+        return join(false, false);
+    }
+
+    public Mono<VoiceConnectionController> join(boolean selfMute, boolean selfDeaf) {
         ServiceMediator serviceMediator = getServiceMediator();
         long guildId = getGuildId().asLong();
         long channelId = getId().asLong();
         long selfId = serviceMediator.getStateHolder().getSelfId().get();
 
         Mono<Void> sendVoiceStateUpdate = Mono.fromRunnable(() -> {
-            VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(guildId, channelId, false, false); // fixme
+            VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(guildId, channelId, selfMute, selfDeaf);
             serviceMediator.getGatewayClient().sender().next(GatewayPayload.voiceStateUpdate(voiceStateUpdate));
         });
 
@@ -165,6 +169,7 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
 
                     return serviceMediator.getVoiceClient().newConnection(endpoint, guildId, selfId, session, token);
                 })
-                .map(voiceConnection -> new VoiceConnectionController(voiceConnection, getServiceMediator(), guildId));
+                .map(voiceConnection -> new VoiceConnectionController(voiceConnection, getServiceMediator(), guildId,
+                                                                      channelId, selfMute, selfDeaf));
     }
 }

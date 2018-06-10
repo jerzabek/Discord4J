@@ -41,11 +41,13 @@ class VoiceGatewayClient {
     private final VoicePayloadWriter payloadWriter;
     private final VoicePayloadHandler payloadHandler;
 
-    VoiceGatewayClient(VoiceConnection voiceConnection, VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter, String endpoint, Identify identify) {
+    VoiceGatewayClient(VoiceConnection voiceConnection, VoicePayloadReader payloadReader,
+                       VoicePayloadWriter payloadWriter, String endpoint, Identify identify) {
         this.payloadReader = payloadReader;
         this.payloadWriter = payloadWriter;
 
-        this.payloadHandler = new VoicePayloadHandler(voiceConnection, heartbeat, endpoint, new VoiceGatewayPayload<>(VoiceOpcode.IDENTIFY, identify));
+        this.payloadHandler = new VoicePayloadHandler(voiceConnection, heartbeat, endpoint,
+                                                      new VoiceGatewayPayload<>(VoiceOpcode.IDENTIFY, identify));
     }
 
     Mono<Void> execute(String gatewayUrl) {
