@@ -40,7 +40,8 @@ class DefaultVoiceConnection implements VoiceConnection {
     private AudioProvider audioProvider;
     private AudioReceiver audioReceiver;
 
-    DefaultVoiceConnection(VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter, String endpoint, Identify identify) {
+    DefaultVoiceConnection(VoicePayloadReader payloadReader, VoicePayloadWriter payloadWriter, String endpoint,
+                           Identify identify) {
         this.gatewayClient = new VoiceGatewayClient(this, payloadReader, payloadWriter, endpoint, identify);
         this.voiceSocket = new VoiceSocket();
         this.endpoint = endpoint;
@@ -81,7 +82,8 @@ class DefaultVoiceConnection implements VoiceConnection {
         Disposable sender = audioProvider.flux()
                 .concatMap(audio ->
                         Mono.fromRunnable(() -> {
-                            if (audio.length == 0 && speaking.get()) { // The previous packet sent was the last in the "batch"
+                            // The previous packet sent was the last in the "batch"
+                            if (audio.length == 0 && speaking.get()) {
                                 sendGatewayMessage(VoiceGatewayPayload.speaking(false, 0, ssrc));
                                 speaking.set(false);
                             } else if (audio.length > 0 && !speaking.get()) { // This packet is the first in the "batch"

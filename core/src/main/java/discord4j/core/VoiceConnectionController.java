@@ -14,16 +14,25 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Discord4J.  If not, see <http://www.gnu.org/licenses/>.
  */
-package discord4j.voice;
+package discord4j.core;
 
+import discord4j.gateway.json.GatewayPayload;
+import discord4j.gateway.json.VoiceStateUpdate;
+import discord4j.voice.AudioProvider;
+import discord4j.voice.AudioReceiver;
+import discord4j.voice.VoiceConnection;
 import reactor.core.publisher.Mono;
 
 public class VoiceConnectionController {
 
     private final VoiceConnection connection;
+    private final ServiceMediator serviceMediator;
+    private final long guildId;
 
-    public VoiceConnectionController(VoiceConnection connection) {
+    public VoiceConnectionController(VoiceConnection connection, ServiceMediator serviceMediator, long guildId) {
         this.connection = connection;
+        this.serviceMediator = serviceMediator;
+        this.guildId = guildId;
     }
 
     public Mono<Void> connect(AudioProvider audioProvider, AudioReceiver audioReceiver) {
@@ -33,5 +42,8 @@ public class VoiceConnectionController {
 
     public void disconnect() {
         connection.shutdown();
+
+        GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, null, false, false)); // fixme
+        serviceMediator.getGatewayClient().sender().next(update);
     }
 }

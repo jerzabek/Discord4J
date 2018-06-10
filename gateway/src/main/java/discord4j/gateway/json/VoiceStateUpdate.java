@@ -19,20 +19,23 @@ package discord4j.gateway.json;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import discord4j.common.jackson.UnsignedJson;
 
+import javax.annotation.Nullable;
+
 public class VoiceStateUpdate implements PayloadData {
 
     @JsonProperty("guild_id")
     @UnsignedJson
     private final long guildId;
     @JsonProperty("channel_id")
+    @Nullable
     @UnsignedJson
-    private final long channelId; // TODO nullable?
+    private final Long channelId;
     @JsonProperty("self_mute")
     private final boolean selfMute;
     @JsonProperty("self_deaf")
     private final boolean selfDeaf;
 
-    public VoiceStateUpdate(long guildId, long channelId, boolean selfMute, boolean selfDeaf) {
+    public VoiceStateUpdate(long guildId, @Nullable Long channelId, boolean selfMute, boolean selfDeaf) {
         this.guildId = guildId;
         this.channelId = channelId;
         this.selfMute = selfMute;

@@ -16,7 +16,11 @@
  */
 package discord4j.voice;
 
+import java.util.Optional;
+
 public interface VoiceClient {
 
-    VoiceConnection getConnection(String endpoint, long guildId, long userId, String sessionId, String token);
+    VoiceConnection newConnection(String endpoint, long guildId, long userId, String sessionId, String token);
+
+    Optional<VoiceConnection> getConnection(long guildId);
 }

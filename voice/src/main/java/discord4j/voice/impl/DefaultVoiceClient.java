@@ -22,6 +22,7 @@ import discord4j.voice.VoicePayloadReader;
 import discord4j.voice.VoicePayloadWriter;
 import discord4j.voice.json.Identify;
 
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 class DefaultVoiceClient implements VoiceClient {
@@ -36,8 +37,25 @@ class DefaultVoiceClient implements VoiceClient {
     }
 
     @Override
-    public VoiceConnection getConnection(String endpoint, long guildId, long userId, String sessionId, String token) {
-        Identify identify = new Identify(Long.toUnsignedString(guildId), Long.toUnsignedString(userId), sessionId, token);
-        return connections.computeIfAbsent(guildId, k -> new DefaultVoiceConnection(payloadReader, payloadWriter, endpoint, identify));
+    public VoiceConnection newConnection(String endpoint, long guildId, long userId, String sessionId, String token) {
+
+        if (connections.containsKey(guildId)) {
+            throw new IllegalArgumentException("Attempt to create voice connection for guild with existing connection");
+        }
+
+        Identify identify = new Identify(Long.toUnsignedString(guildId), Long.toUnsignedString(userId), sessionId,
+                                         token);
+
+        DefaultVoiceConnection connection = new DefaultVoiceConnection(payloadReader, payloadWriter, endpoint,
+                                                                       identify);
+
+        connections.put(guildId, connection);
+
+        return connection;
+    }
+
+    @Override
+    public Optional<VoiceConnection> getConnection(long guildId) {
+        return Optional.ofNullable(connections.get(guildId));
     }
 }

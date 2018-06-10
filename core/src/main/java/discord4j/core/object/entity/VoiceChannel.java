@@ -31,7 +31,7 @@ import discord4j.core.util.EntityUtil;
 import reactor.core.publisher.Flux;
 import discord4j.gateway.json.GatewayPayload;
 import discord4j.gateway.json.VoiceStateUpdate;
-import discord4j.voice.VoiceConnectionController;
+import discord4j.core.VoiceConnectionController;
 import reactor.core.publisher.Mono;
 
 import java.util.Optional;
@@ -131,36 +131,40 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
     }
 
     public Mono<VoiceConnectionController> join() {
-        VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(getGuildId().asLong(), getId().asLong(), false, false);
+        ServiceMediator serviceMediator = getServiceMediator();
+        long guildId = getGuildId().asLong();
+        long channelId = getId().asLong();
+        long selfId = serviceMediator.getStateHolder().getSelfId().get();
 
-        Mono<Void> sendVoiceStateUpdate = Mono.fromRunnable(() ->
-                getServiceMediator().getGatewayClient().sender().next(GatewayPayload.voiceStateUpdate(voiceStateUpdate))
-        );
+        Mono<Void> sendVoiceStateUpdate = Mono.fromRunnable(() -> {
+            VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(guildId, channelId, false, false); // fixme
+            serviceMediator.getGatewayClient().sender().next(GatewayPayload.voiceStateUpdate(voiceStateUpdate));
+        });
 
         Mono<VoiceStateUpdateEvent> waitForVoiceStateUpdate = getClient().getEventDispatcher()
                 .on(VoiceStateUpdateEvent.class)
                 .filter(vsu -> {
-                    long selfId = getServiceMediator().getStateHolder().getSelfId().get();
-                    return vsu.getCurrent().getUserId().asLong() == selfId && vsu.getCurrent().getGuildId().equals(getGuildId());
+                    long vsuUser = vsu.getCurrent().getUserId().asLong();
+                    long vsuGuild = vsu.getCurrent().getGuildId().asLong();
+
+                    return vsuUser == selfId && vsuGuild == guildId; // this update is for the bot user in this guild
                 })
                 .next();
 
         Mono<VoiceServerUpdateEvent> waitForVoiceServerUpdate = getClient().getEventDispatcher()
                 .on(VoiceServerUpdateEvent.class)
-                .filter(vsu -> vsu.getGuildId().equals(getGuildId()))
+                .filter(vsu -> vsu.getGuildId().asLong() == guildId)
                 .next();
 
         return sendVoiceStateUpdate
                 .then(Mono.zip(waitForVoiceStateUpdate, waitForVoiceServerUpdate))
                 .map(t -> {
                     String endpoint = t.getT2().getEndpoint().replace(":80", ""); // discord sends the wrong port...
-                    long guild = getGuildId().asLong();
-                    long user = getServiceMediator().getStateHolder().getSelfId().get();
                     String session = t.getT1().getCurrent().getSessionId();
                     String token = t.getT2().getToken();
 
-                    return getServiceMediator().getVoiceClient().getConnection(endpoint, guild, user, session, token);
+                    return serviceMediator.getVoiceClient().newConnection(endpoint, guildId, selfId, session, token);
                 })
-                .map(VoiceConnectionController::new);
+                .map(voiceConnection -> new VoiceConnectionController(voiceConnection, getServiceMediator(), guildId));
     }
 }
