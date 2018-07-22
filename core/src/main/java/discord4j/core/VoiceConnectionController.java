@@ -50,6 +50,7 @@ public class VoiceConnectionController {
 
     public void disconnect() {
         connection.shutdown();
+        serviceMediator.getVoiceClient().removeConnection(guildId);
 
         GatewayPayload<VoiceStateUpdate> update = GatewayPayload.voiceStateUpdate(new VoiceStateUpdate(guildId, null, selfMute, selfDeaf));
         serviceMediator.getGatewayClient().sender().next(update);

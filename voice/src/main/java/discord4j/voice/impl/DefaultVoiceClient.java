@@ -38,7 +38,6 @@ class DefaultVoiceClient implements VoiceClient {
 
     @Override
     public VoiceConnection newConnection(String endpoint, long guildId, long userId, String sessionId, String token) {
-
         if (connections.containsKey(guildId)) {
             throw new IllegalArgumentException("Attempt to create voice connection for guild with existing connection");
         }
@@ -52,6 +51,11 @@ class DefaultVoiceClient implements VoiceClient {
         connections.put(guildId, connection);
 
         return connection;
+    }
+
+    @Override
+    public void removeConnection(long guildId) {
+        connections.remove(guildId);
     }
 
     @Override

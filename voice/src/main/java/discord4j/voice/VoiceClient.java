@@ -22,5 +22,7 @@ public interface VoiceClient {
 
     VoiceConnection newConnection(String endpoint, long guildId, long userId, String sessionId, String token);
 
+    void removeConnection(long guildId);
+
     Optional<VoiceConnection> getConnection(long guildId);
 }
