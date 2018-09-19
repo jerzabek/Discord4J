@@ -24,7 +24,7 @@ ext {
     mockito_version = '2.7.22'
     logback_version = '1.3.0-alpha4'
     autoservice_version = '1.0-rc4'
-    jdkstores_version = 'ea3e145'
+    jdkstores_version = 'e31d56f'
 }
 
 allprojects {
