@@ -17,9 +17,10 @@
 package discord4j.rest.http;
 
 import reactor.core.publisher.Mono;
-import reactor.netty.ByteBufFlux;
+import reactor.ipc.netty.http.client.HttpClientResponse;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Read a response as a {@code String}, regardless of its type and response Content-Type. It serves as a "catch-all"
@@ -33,7 +34,8 @@ public class FallbackReaderStrategy implements ReaderStrategy<String> {
     }
 
     @Override
-    public Mono<String> read(ByteBufFlux content, Class<String> responseType) {
-        return content.aggregate().asString();
+    public Mono<String> read(HttpClientResponse response, Class<String> responseType) {
+        Objects.requireNonNull(response);
+        return response.receive().aggregate().asString();
     }
 }

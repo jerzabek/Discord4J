@@ -22,11 +22,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
-import reactor.netty.ByteBufFlux;
-import reactor.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClientRequest;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Type;
+import java.util.Objects;
 
 /**
  * Write to a request from an {@code Object} to a JSON {@code String} using Jackson 2.9.
@@ -51,12 +51,11 @@ public class JacksonWriterStrategy implements WriterStrategy<Object> {
     }
 
     @Override
-    public Mono<HttpClient.ResponseReceiver<?>> write(HttpClient.RequestSender sender, @Nullable Object body) {
-        if (body == null) {
-            return Mono.error(new RuntimeException("Missing body"));
-        }
+    public Mono<Void> write(HttpClientRequest request, @Nullable Object body) {
+        Objects.requireNonNull(request);
+        Objects.requireNonNull(body);
         try {
-            return Mono.just(sender.send(ByteBufFlux.fromString(Mono.just(objectMapper.writeValueAsString(body)))));
+            return request.sendString(Mono.just(objectMapper.writeValueAsString(body))).then();
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);
         }

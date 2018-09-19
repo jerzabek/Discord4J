@@ -21,17 +21,16 @@ import discord4j.voice.*;
 import discord4j.voice.json.Identify;
 import discord4j.voice.json.VoiceGatewayPayload;
 import discord4j.voice.json.VoiceOpcode;
-import discord4j.websocket.WebSocketClient;
 import reactor.core.Disposable;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.ipc.netty.http.client.HttpClient;
 
 class VoiceGatewayClient {
 
     static final String VERSION = "3";
 
-    private final WebSocketClient webSocketClient = new WebSocketClient();
     private final ResettableInterval heartbeat = new ResettableInterval();
 
     private final EmitterProcessor<VoiceGatewayPayload<?>> sender = EmitterProcessor.create(false);
@@ -62,7 +61,9 @@ class VoiceGatewayClient {
 
             Disposable senderSub = sender.subscribe(handler.outbound()::onNext, t -> handler.close(), handler::close);
 
-            return webSocketClient.execute(gatewayUrl, handler)
+            return HttpClient.create()
+                    .ws(gatewayUrl)
+                    .flatMap(response -> response.receiveWebsocket(handler::handle))
                     .doOnTerminate(() -> {
                         inboundSub.dispose();
                         senderSub.dispose();

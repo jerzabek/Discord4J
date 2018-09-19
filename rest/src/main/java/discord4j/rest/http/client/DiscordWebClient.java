@@ -21,12 +21,12 @@ import discord4j.rest.http.ExchangeStrategies;
 import discord4j.rest.http.ReaderStrategy;
 import discord4j.rest.http.WriterStrategy;
 import discord4j.rest.json.response.ErrorResponse;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
+import discord4j.rest.route.Routes;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaders;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-import reactor.netty.http.client.HttpClientResponse;
+import reactor.ipc.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -82,20 +82,21 @@ public class DiscordWebClient {
             Consumer<HttpClientResponse> responseConsumer) {
         Objects.requireNonNull(responseType);
 
-        HttpHeaders requestHeaders = new DefaultHttpHeaders().add(defaultHeaders).setAll(clientRequest.headers());
-        String contentType = requestHeaders.get(HttpHeaderNames.CONTENT_TYPE);
-        HttpClient.RequestSender sender = httpClient
-                .observe((connection, newState) -> log.debug("{} {}", newState, connection))
-                .headers(headers -> headers.setAll(requestHeaders))
-                .request(clientRequest.method())
-                .uri(clientRequest.url());
-        return exchangeStrategies.writers().stream()
-                .filter(s -> s.canWrite(body != null ? body.getClass() : null, contentType))
-                .findFirst()
-                .map(DiscordWebClient::<R>cast)
-                .map(writer -> writer.write(sender, body))
-                .orElseGet(() -> Mono.error(noReaderException(body, contentType)))
-                .flatMap(receiver -> receiver.response((response, content) -> {
+        return httpClient.request(clientRequest.method(), Routes.BASE_URL + clientRequest.url(),
+                request -> {
+                    defaultHeaders.forEach(entry -> request.header(entry.getKey(), entry.getValue()));
+                    clientRequest.headers().forEach(entry -> request.header(entry.getKey(), entry.getValue()));
+                    request.failOnClientError(false); // required to handle 400 errors ourselves
+                    request.failOnServerError(false); // and 500 errors
+                    String contentType = request.requestHeaders().get(HttpHeaderNames.CONTENT_TYPE);
+                    return exchangeStrategies.writers().stream()
+                            .filter(s -> s.canWrite(body != null ? body.getClass() : null, contentType))
+                            .findFirst()
+                            .map(DiscordWebClient::<R>cast)
+                            .map(s -> s.write(request, body))
+                            .orElseGet(() -> Mono.error(noReaderException(body, contentType)));
+                })
+                .flatMap(response -> {
                     responseConsumer.accept(response);
                     String responseContentType = response.responseHeaders().get(HttpHeaderNames.CONTENT_TYPE);
                     Optional<ReaderStrategy<?>> readerStrategy = exchangeStrategies.readers().stream()
@@ -105,15 +106,15 @@ public class DiscordWebClient {
                     if (responseStatus >= 400 && responseStatus < 600) {
                         return Mono.justOrEmpty(readerStrategy)
                                 .map(DiscordWebClient::<ErrorResponse>cast)
-                                .flatMap(s -> s.read(content, ErrorResponse.class))
+                                .flatMap(s -> s.read(response, ErrorResponse.class))
                                 .flatMap(s -> Mono.<T>error(clientException(response, s)))
                                 .switchIfEmpty(Mono.error(clientException(response, null)));
                     } else {
                         return readerStrategy.map(DiscordWebClient::<T>cast)
-                                .map(s -> s.read(content, responseType))
+                                .map(s -> s.read(response, responseType))
                                 .orElseGet(() -> Mono.error(noWriterException(responseType, responseContentType)));
                     }
-                }).next());
+                });
     }
 
     @SuppressWarnings("unchecked")

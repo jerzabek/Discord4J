@@ -191,7 +191,7 @@ public class RetryBotTest {
                                 });
                         return Mono.just(event);
                     })
-                    .onErrorContinue((t, o) -> log.error("Error", t))
+//                    .onErrorContinue((t, o) -> log.error("Error", t)) // unavailable on reactor-core 3.1.x
                     .subscribe();
         }
     }

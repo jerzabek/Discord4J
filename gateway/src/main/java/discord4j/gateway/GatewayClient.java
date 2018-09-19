@@ -32,7 +32,7 @@ import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClient;
 import reactor.retry.Retry;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -148,12 +148,8 @@ public class GatewayClient {
                     .then();
 
             Mono<Void> httpFuture = HttpClient.create()
-                    .headers(headers -> headers.add(USER_AGENT, "DiscordBot(https://discord4j.com, 3)"))
-                    .observe(handler)
-                    .websocket(Integer.MAX_VALUE)
-                    .uri(gatewayUrl)
-                    .handle(handler::handle)
-                    .doOnComplete(() -> log.debug("WebSocket future complete"))
+                    .ws(gatewayUrl, headers -> headers.add(USER_AGENT, "DiscordBot(https://discord4j.com, 3)"), null)
+                    .flatMap(response -> response.receiveWebsocket(handler::handle))
                     .doOnError(t -> log.debug("WebSocket future threw an error", t))
                     .doOnCancel(() -> log.debug("WebSocket future cancelled"))
                     .doOnTerminate(heartbeat::stop)

@@ -19,18 +19,21 @@ package discord4j.voice.impl;
 import discord4j.voice.VoicePayloadReader;
 import discord4j.voice.VoicePayloadWriter;
 import discord4j.voice.json.VoiceGatewayPayload;
-import discord4j.websocket.WebSocketHandler;
-import discord4j.websocket.WebSocketMessage;
-import discord4j.websocket.WebSocketSession;
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.UnicastProcessor;
+import reactor.ipc.netty.NettyPipeline;
+import reactor.ipc.netty.http.websocket.WebsocketInbound;
+import reactor.ipc.netty.http.websocket.WebsocketOutbound;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
 import java.util.logging.Level;
 
-class VoiceWebsocketHandler implements WebSocketHandler {
+class VoiceWebsocketHandler {
 
     private static final Logger inboundLogger = Loggers.getLogger("discord4j.voice.inbound");
     private static final Logger outboundLogger = Loggers.getLogger("discord4j.voice.outbound");
@@ -46,17 +49,19 @@ class VoiceWebsocketHandler implements WebSocketHandler {
         this.writer = writer;
     }
 
-    @Override
-    public Mono<Void> handle(WebSocketSession session) {
-        session.replaceLoggingHandler();
-
-        session.receive()
-                .map(WebSocketMessage::getPayload)
+    public Mono<Void> handle(WebsocketInbound in, WebsocketOutbound out) {
+        in.aggregateFrames()
+                .receiveFrames()
+                .map(WebSocketFrame::content)
                 .map(reader::read)
                 .log(inboundLogger, Level.FINE, false)
                 .subscribe(inboundExchange::onNext, this::error);
 
-        return session.send(outboundExchange.map(this::mapOutbound).log(outboundLogger, Level.FINE, false));
+        return out.options(NettyPipeline.SendOptions::flushOnEach)
+                .sendObject(outboundExchange.map(this::mapOutbound)
+                        .log(outboundLogger, Level.FINE, false)
+                        .map(TextWebSocketFrame::new))
+                .then();
     }
 
     Flux<VoiceGatewayPayload<?>> inbound() {
@@ -77,7 +82,7 @@ class VoiceWebsocketHandler implements WebSocketHandler {
         inboundExchange.onComplete();
     }
 
-    private WebSocketMessage mapOutbound(VoiceGatewayPayload<?> payload) {
-        return WebSocketMessage.fromText(writer.write(payload));
+    private ByteBuf mapOutbound(VoiceGatewayPayload<?> payload) {
+        return writer.write(payload);
     }
 }

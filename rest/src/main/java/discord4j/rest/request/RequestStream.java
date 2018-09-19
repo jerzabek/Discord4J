@@ -25,7 +25,7 @@ import io.netty.handler.codec.http.HttpHeaders;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoProcessor;
-import reactor.netty.http.client.HttpClientResponse;
+import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.retry.BackoffDelay;
 import reactor.retry.Retry;
 import reactor.retry.RetryContext;

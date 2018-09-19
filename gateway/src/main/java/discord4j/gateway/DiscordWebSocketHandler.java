@@ -32,11 +32,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoProcessor;
-import reactor.netty.Connection;
-import reactor.netty.ConnectionObserver;
-import reactor.netty.NettyPipeline;
-import reactor.netty.http.websocket.WebsocketInbound;
-import reactor.netty.http.websocket.WebsocketOutbound;
+import reactor.ipc.netty.NettyPipeline;
+import reactor.ipc.netty.http.websocket.WebsocketInbound;
+import reactor.ipc.netty.http.websocket.WebsocketOutbound;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -61,7 +59,7 @@ import java.util.logging.Level;
  * All payloads going through this handler are passed to the given {@link discord4j.gateway.payload.PayloadReader}
  * and {@link discord4j.gateway.payload.PayloadWriter}.
  */
-public class DiscordWebSocketHandler implements ConnectionObserver {
+public class DiscordWebSocketHandler {
 
     private static final Logger log = Loggers.getLogger(DiscordWebSocketHandler.class);
     private static final Logger inboundLogger = Loggers.getLogger("discord4j.gateway.inbound");
@@ -96,7 +94,7 @@ public class DiscordWebSocketHandler implements ConnectionObserver {
 
     public Mono<Void> handle(WebsocketInbound in, WebsocketOutbound out) {
         AtomicReference<CloseStatus> reason = new AtomicReference<>();
-        in.withConnection(connection -> connection.addHandlerLast(CLOSE_HANDLER, new CloseHandlerAdapter(reason)));
+        in.context().addHandlerLast(CLOSE_HANDLER, new CloseHandlerAdapter(reason));
 
         Mono<Void> outboundEvents = out.options(NettyPipeline.SendOptions::flushOnEach)
                 .sendObject(outbound.concatMap(this::limitRate)
@@ -159,7 +157,7 @@ public class DiscordWebSocketHandler implements ConnectionObserver {
     /**
      * Initiates a close sequence that will terminate this session. It will notify all exchanges and the session
      * completion {@link reactor.core.publisher.Mono} in
-     * {@link #handle(reactor.netty.http.websocket.WebsocketInbound, reactor.netty.http.websocket.WebsocketOutbound)}
+     * {@link #handle(reactor.ipc.netty.http.websocket.WebsocketInbound, reactor.ipc.netty.http.websocket.WebsocketOutbound)}
      * through a complete signal, dropping all future signals.
      */
     public void close() {
@@ -169,7 +167,7 @@ public class DiscordWebSocketHandler implements ConnectionObserver {
 
     /**
      * Initiates a close sequence with the given error. It will terminate this session with an error signal on the
-     * {@link #handle(reactor.netty.http.websocket.WebsocketInbound, reactor.netty.http.websocket.WebsocketOutbound)}
+     * {@link #handle(reactor.ipc.netty.http.websocket.WebsocketInbound, reactor.ipc.netty.http.websocket.WebsocketOutbound)}
      * method, while completing both exchanges through normal complete signals.
      * <p>
      * The error can then be channeled downstream and acted upon accordingly.
@@ -187,11 +185,6 @@ public class DiscordWebSocketHandler implements ConnectionObserver {
                 completionNotifier.onError(new CloseException(new CloseStatus(1006, error.toString()), error));
             }
         }
-    }
-
-    @Override
-    public void onStateChange(Connection connection, State newState) {
-        log.debug("{} {}", newState, connection);
     }
 
     private static class CloseHandlerAdapter extends ChannelInboundHandlerAdapter {

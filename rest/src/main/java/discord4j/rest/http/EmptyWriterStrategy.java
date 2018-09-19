@@ -17,8 +17,7 @@
 package discord4j.rest.http;
 
 import reactor.core.publisher.Mono;
-import reactor.netty.ByteBufFlux;
-import reactor.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClientRequest;
 
 import javax.annotation.Nullable;
 
@@ -33,7 +32,7 @@ public class EmptyWriterStrategy implements WriterStrategy<Void> {
     }
 
     @Override
-    public Mono<HttpClient.ResponseReceiver<?>> write(HttpClient.RequestSender sender, @Nullable Void body) {
-        return Mono.just(sender.send(ByteBufFlux.empty()));
+    public Mono<Void> write(HttpClientRequest request, @Nullable Void body) {
+        return request.send();
     }
 }

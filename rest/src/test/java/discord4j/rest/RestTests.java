@@ -26,11 +26,10 @@ import discord4j.common.jackson.UnknownPropertyHandler;
 import discord4j.rest.http.ExchangeStrategies;
 import discord4j.rest.http.client.DiscordWebClient;
 import discord4j.rest.request.Router;
-import discord4j.rest.route.Routes;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import reactor.core.scheduler.Schedulers;
-import reactor.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClient;
 
 public abstract class RestTests {
 
@@ -39,7 +38,7 @@ public abstract class RestTests {
         defaultHeaders.add("content-type", "application/json");
         defaultHeaders.add("authorization", "Bot " + token);
         defaultHeaders.add("user-agent", "DiscordBot(http://discord4j.com, test-suite)");
-        HttpClient httpClient = HttpClient.create().baseUrl(Routes.BASE_URL).compress().wiretap();
+        HttpClient httpClient = HttpClient.create(options -> options.compression(true));
         DiscordWebClient webClient = new DiscordWebClient(httpClient, defaultHeaders,
                 ExchangeStrategies.withJacksonDefaults(mapper));
         return new Router(webClient, Schedulers.elastic());

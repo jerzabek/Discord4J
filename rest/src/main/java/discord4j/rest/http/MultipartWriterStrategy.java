@@ -22,8 +22,7 @@ import discord4j.rest.json.request.MessageCreateRequest;
 import discord4j.rest.util.MultipartRequest;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-import reactor.netty.http.client.HttpClientForm;
+import reactor.ipc.netty.http.client.HttpClientRequest;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -32,9 +31,9 @@ import java.util.Optional;
 
 /**
  * Write to a request from a {@code Consumer<HttpClientRequest.Form>} using reactor-netty's {@link
- * reactor.netty.http.client.HttpClient.RequestSender#sendForm(java.util.function.BiConsumer)}.
+ * HttpClientRequest#sendForm(java.util.function.Consumer)}.
  *
- * @see HttpClientForm
+ * @see HttpClientRequest.Form
  */
 public class MultipartWriterStrategy implements WriterStrategy<MultipartRequest> {
 
@@ -52,12 +51,12 @@ public class MultipartWriterStrategy implements WriterStrategy<MultipartRequest>
     }
 
     @Override
-    public Mono<HttpClient.ResponseReceiver<?>> write(HttpClient.RequestSender send, @Nullable MultipartRequest body) {
+    public Mono<Void> write(HttpClientRequest request, @Nullable MultipartRequest body) {
         if (body == null) {
             return Mono.empty(); // or .error() ?
         }
-        final MessageCreateRequest createRequest = body.getCreateRequest();
-        return Mono.just(send.sendForm((request, form) -> {
+        MessageCreateRequest createRequest = body.getCreateRequest();
+        return request.chunkedTransfer(false).sendForm(form -> {
             if (body.getFile() != null) {
                 form.multipart(true).file("file", Optional.ofNullable(body.getFileName()).orElse("unknown"),
                         body.getFile(), "application/octet-stream");
@@ -70,6 +69,6 @@ public class MultipartWriterStrategy implements WriterStrategy<MultipartRequest>
                     throw Exceptions.propagate(e);
                 }
             }
-        }));
+        }).then();
     }
 }

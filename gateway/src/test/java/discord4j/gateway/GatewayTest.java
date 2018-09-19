@@ -25,7 +25,7 @@ import org.junit.Test;
 import reactor.core.Exceptions;
 import reactor.core.publisher.EmitterProcessor;
 import reactor.core.scheduler.Schedulers;
-import reactor.netty.http.client.HttpClient;
+import reactor.ipc.netty.http.client.HttpClient;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -55,9 +55,8 @@ public class GatewayTest {
         EmitterProcessor<String> inboundExchange = EmitterProcessor.create();
 
         HttpClient.create()
-                .websocket()
-                .uri(gatewayUrl)
-                .handle((inbound, outbound) -> {
+                .ws(gatewayUrl)
+                .flatMap(response -> response.receiveWebsocket((inbound, outbound) -> {
                     WebSocketMessageSubscriber subscriber =
                             new WebSocketMessageSubscriber(inboundExchange, outboundExchange, token);
                     inbound.aggregateFrames()
@@ -82,7 +81,7 @@ public class GatewayTest {
                             .log("session-outbound")
                             .doOnError(t -> log.info("outbound error", t))
                             .map(TextWebSocketFrame::new));
-                })
+                }))
                 .then()
                 .publishOn(Schedulers.elastic())
                 .block();
