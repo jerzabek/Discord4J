@@ -1,0 +1,7 @@
+dependencies {
+    compile project(':common')
+    compile 'com.github.GrandPanda:simple-fsm:c013d79'
+
+    testCompile "junit:junit:$junit_version"
+    testCompile "ch.qos.logback:logback-classic:$logback_version"
+}

@@ -17,6 +17,8 @@
 package discord4j.core.object.entity;
 
 import discord4j.core.ServiceMediator;
+import discord4j.core.event.domain.VoiceServerUpdateEvent;
+import discord4j.core.event.domain.VoiceStateUpdateEvent;
 import discord4j.core.object.ExtendedInvite;
 import discord4j.core.object.VoiceState;
 import discord4j.core.object.data.ExtendedInviteBean;
@@ -28,7 +30,12 @@ import discord4j.core.object.util.Snowflake;
 import discord4j.core.spec.InviteCreateSpec;
 import discord4j.core.spec.VoiceChannelEditSpec;
 import discord4j.core.util.EntityUtil;
+import discord4j.gateway.json.GatewayPayload;
+import discord4j.gateway.json.VoiceStateUpdate;
 import discord4j.store.api.util.LongLongTuple2;
+import discord4j.voice.AudioProvider;
+import discord4j.voice.AudioReceiver;
+import discord4j.voice.VoiceConnection;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -145,6 +152,65 @@ public final class VoiceChannel extends BaseGuildChannel implements Categorizabl
                              LongLongTuple2.of(getGuildId().asLong(), Long.MAX_VALUE))
                 .filter(bean -> Objects.equals(bean.getChannelId(), getId().asLong()))
                 .map(bean -> new VoiceState(getServiceMediator(), bean));
+    }
+
+    /**
+     * Requests to join this voice channel.
+     *
+     * @param provider The provider which should be used to send audio to this channel.
+     * @param receiver The receiver which should be used to receive audio from this channel.
+     * @return A {@link Mono} where, upon successful completion, emits a {@link VoiceConnection} when the connection to
+     * the channel is established.
+     */
+    public Mono<VoiceConnection> join(AudioProvider provider, AudioReceiver receiver) {
+        return join(false, false, provider, receiver);
+    }
+
+    /**
+     * Requests to the join this voice channel.
+     *
+     * @param selfMute Whether the bot should be self muted when joining the channel.
+     * @param selfDeaf Whether the bot should be self deafened when joining the channel.
+     * @param provider The provider which should be used to send audio to this channel.
+     * @param receiver The receiver which should be used to receive audio from this channel.
+     * @return A {@link Mono} where, upon successful completion, emits a {@link VoiceConnection} when the connection to
+     * the channel is established.
+     */
+    public Mono<VoiceConnection> join(boolean selfMute, boolean selfDeaf, AudioProvider provider, AudioReceiver receiver) {
+        ServiceMediator serviceMediator = getServiceMediator();
+        long guildId = getGuildId().asLong();
+        long channelId = getId().asLong();
+        long selfId = serviceMediator.getStateHolder().getSelfId().get();
+
+        Mono<Void> sendVoiceStateUpdate = Mono.fromRunnable(() -> {
+            VoiceStateUpdate voiceStateUpdate = new VoiceStateUpdate(guildId, channelId, selfMute, selfDeaf);
+            serviceMediator.getGatewayClient().sender().next(GatewayPayload.voiceStateUpdate(voiceStateUpdate));
+        });
+
+        Mono<VoiceStateUpdateEvent> waitForVoiceStateUpdate = getClient().getEventDispatcher()
+                .on(VoiceStateUpdateEvent.class)
+                .filter(vsu -> {
+                    long vsuUser = vsu.getCurrent().getUserId().asLong();
+                    long vsuGuild = vsu.getCurrent().getGuildId().asLong();
+
+                    return vsuUser == selfId && vsuGuild == guildId; // this update is for the bot user in this guild
+                })
+                .next();
+
+        Mono<VoiceServerUpdateEvent> waitForVoiceServerUpdate = getClient().getEventDispatcher()
+                .on(VoiceServerUpdateEvent.class)
+                .filter(vsu -> vsu.getGuildId().asLong() == guildId)
+                .next();
+
+        return sendVoiceStateUpdate
+                .then(Mono.zip(waitForVoiceStateUpdate, waitForVoiceServerUpdate))
+                .flatMap(t -> {
+                    String endpoint = t.getT2().getEndpoint().replace(":80", ""); // discord sends the wrong port...
+                    String session = t.getT1().getCurrent().getSessionId();
+                    String token = t.getT2().getToken();
+
+                    return serviceMediator.getVoiceClient().newConnection(guildId, selfId, session, token, endpoint, provider, receiver);
+                });
     }
 
     @Override
